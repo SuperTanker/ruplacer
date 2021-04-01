@@ -5,6 +5,8 @@
 * Implement `--hidden` and `--ignored` flags, to force patching of
   hidden and ignored files, respectively.
 
+* Add support for glob pattern. Patch by @ndtoan96
+
 * If the last argument is `-`, read from stdin and write to stdout.
 
 ## Internals
