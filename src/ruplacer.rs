@@ -1,11 +1,6 @@
 #![allow(dead_code)]
 use crate::query::Query;
 use colored::*;
-use inflector::cases::camelcase::*;
-use inflector::cases::kebabcase::*;
-use inflector::cases::pascalcase::*;
-use inflector::cases::screamingsnakecase::*;
-use inflector::cases::snakecase::*;
 use regex::Regex;
 use std::path::Path;
 
@@ -93,26 +88,13 @@ impl<'a> Replacer for SubstringReplacer<'a> {
     }
 }
 
-struct SubvertReplacer {
-    patterns: Vec<String>,
-    replacements: Vec<String>,
+struct SubvertReplacer<'a> {
+    patterns: &'a [String],
+    replacements: &'a [String],
 }
 
-impl SubvertReplacer {
-    fn new(pattern: &str, replacement: &str) -> Self {
-        // TODO: this should be done once when we build the query, not here
-        let mut patterns: Vec<String> = vec![];
-        let mut replacements: Vec<String> = vec![];
-        for func in &[
-            to_camel_case,
-            to_pascal_case,
-            to_snake_case,
-            to_kebab_case,
-            to_screaming_snake_case,
-        ] {
-            patterns.push(func(pattern));
-            replacements.push(func(replacement));
-        }
+impl<'a> SubvertReplacer<'a> {
+    fn new(patterns: &'a [String], replacements: &'a [String]) -> Self {
         Self {
             patterns,
             replacements,
@@ -120,7 +102,7 @@ impl SubvertReplacer {
     }
 }
 
-impl Replacer for SubvertReplacer {
+impl<'a> Replacer for SubvertReplacer<'a> {
     fn find_and_replace(&self, buff: &str) -> Option<(usize, String, String)> {
         // We need to return the best possible match, other wise we may
         // replace FooBar with SpamEggs *before* replacing foo-bar with spam-eggs
@@ -231,8 +213,8 @@ fn get_fragments(input: &str, query: &Query) -> Fragments {
             let finder = RegexReplacer::new(&regex, &replacement);
             get_fragments_with_finder(input, finder)
         }
-        Query::Subvert(pattern, replacement) => {
-            let finder = SubvertReplacer::new(&pattern, &replacement);
+        Query::Subvert(patterns, replacements) => {
+            let finder = SubvertReplacer::new(&patterns, &replacements);
             get_fragments_with_finder(input, finder)
         }
     }
