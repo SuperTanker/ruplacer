@@ -56,8 +56,8 @@ pub fn replace<'a>(input: &'a str, query: &Query) -> Option<Replacement<'a>> {
     }
     let output = get_output(input, &fragments);
     Some(Replacement {
-        input,
         fragments,
+        input,
         output,
     })
 }
@@ -238,7 +238,7 @@ fn get_output(input: &str, Fragments { inputs, outputs }: &Fragments) -> String 
         current_index = input_index + input_text.len();
     }
     output.push_str(&input[current_index..]);
-    return output;
+    output
 }
 
 fn get_fragments_with_finder(input: &str, finder: impl Replacer) -> Fragments {

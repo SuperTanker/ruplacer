@@ -20,7 +20,7 @@ pub fn from_regex(re: regex::Regex, replacement: &str) -> Query {
 }
 
 fn to_ugly_case(input: &str) -> String {
-    return to_train_case(input).replace("-", "_");
+    to_train_case(input).replace("-", "_")
 }
 
 pub fn subvert(pattern: &str, replacement: &str) -> Query {
