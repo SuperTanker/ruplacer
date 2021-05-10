@@ -15,6 +15,7 @@ impl<'a> Replacement<'a> {
     pub fn output(&self) -> &str {
         &self.output
     }
+
     pub fn print_self(&self, path: &Path, lineno: usize) {
         let prefix = format!(
             "{}:{}",
