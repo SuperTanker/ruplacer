@@ -4,16 +4,6 @@ pub enum Query {
     Subvert(String, String),
 }
 
-impl Query {
-    pub(crate) fn description(&self) -> (&str, &str) {
-        match self {
-            Query::Substring(old, new) => (old, new),
-            Query::Regex(re, replacement) => (re.as_str(), replacement),
-            Query::Subvert(old, new) => (old, new),
-        }
-    }
-}
-
 pub fn substring(old: &str, new: &str) -> Query {
     Query::Substring(old.to_string(), new.to_string())
 }

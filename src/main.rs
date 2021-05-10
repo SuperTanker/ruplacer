@@ -222,9 +222,12 @@ fn run_on_stdin(query: ruplacer::Query) -> Result<()> {
     let stdin = std::io::stdin();
     for line in stdin.lock().lines() {
         let line = line?;
-        let patcher = ruplacer::LinePatcher::new(&line);
-        let replaced = patcher.replace(&query);
-        println!("{}", replaced);
+        let replacement = ruplacer::replace(&line, &query);
+        if let Some(replacement) = replacement {
+            println!("{}", replacement.output());
+        } else {
+            println!("{}", line);
+        }
     }
     Ok(())
 }

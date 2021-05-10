@@ -45,12 +45,7 @@ impl DirectoryPatcher {
             None => return Ok(()),
             Some(f) => f,
         };
-        let replacements = file_patcher.replacements();
-        if replacements.is_empty() {
-            return Ok(());
-        }
-        self.stats.update(replacements.len());
-        file_patcher.print_patch();
+        self.stats.update(file_patcher.num_replacements());
         if self.settings.dry_run {
             return Ok(());
         }
