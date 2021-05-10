@@ -22,6 +22,8 @@ inflection = "^0.5.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.0.1"
+black = "^21.5b0"
+isort = "^5.8.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

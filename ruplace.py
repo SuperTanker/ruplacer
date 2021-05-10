@@ -1,13 +1,16 @@
-import cli_ui as ui
+import argparse
 import re
-from inflection import camelize, underscore, dasherize
+from pathlib import Path
+
+import cli_ui as ui
+from inflection import camelize, dasherize, underscore
 
 
 def screamize(x):
     return camelize(x).upper()
 
 
-def ruplace(kind, input, pattern, replacement):
+def ruplace(kind, path, lineno, input, pattern, replacement):
     if kind == "substring":
         input_fragments, output_fragments = get_fragments_substring(
             input, pattern, replacement
@@ -21,9 +24,11 @@ def ruplace(kind, input, pattern, replacement):
         input_fragments, output_fragments = get_fragments_regex(
             input, regex, replacement
         )
+    if not input_fragments:
+        return None
     output = get_output(input, input_fragments, output_fragments)
-    print_red(input, input_fragments)
-    print_green(output, output_fragments)
+    print_red(path, lineno, input, input_fragments)
+    print_green(path, lineno, output, output_fragments)
     return output
 
 
@@ -130,8 +135,8 @@ def get_output(input, input_fragments, output_fragments):
     return output
 
 
-def print_red(input, input_fragments):
-    ui.info(ui.red, "--- ", end="")
+def print_red(path, lineno, input, input_fragments):
+    ui.info(ui.bold, f"{path}:{lineno}", ui.red, "--- ", end="")
     current_index = 0
     for (in_index, in_substring) in input_fragments:
         ui.info(input[current_index:in_index], end="")
@@ -140,11 +145,36 @@ def print_red(input, input_fragments):
     ui.info(input[current_index:])
 
 
-def print_green(output, output_fragments):
-    ui.info(ui.green, "+++ ", end="")
+def print_green(path, lineno, output, output_fragments):
+    ui.info(ui.bold, f"{path}:{lineno}", ui.green, "+++ ", end="")
     current_index = 0
     for (out_index, out_substring) in output_fragments:
         ui.info(output[current_index:out_index], end="")
         ui.info(ui.green, ui.underline, out_substring, end="")
         current_index = out_index + len(out_substring)
     ui.info(output[current_index:])
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("src_path", type=Path)
+    parser.add_argument("pattern")
+    parser.add_argument("replacement")
+    parser.add_argument("--regex", action="store_true")
+    parser.add_argument("--subvert", action="store_true")
+
+    args = parser.parse_args()
+    contents = args.src_path.read_text()
+    kind = "substring"
+    if args.subvert:
+        kind = "subvert"
+    if args.regex:
+        kind = "regex"
+    for (i, line) in enumerate(contents.splitlines()):
+        res = ruplace(kind, args.src_path, i + 1, line, args.pattern, args.replacement)
+        if res:
+            print()
+
+
+if __name__ == "__main__":
+    main()
