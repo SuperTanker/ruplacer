@@ -14,7 +14,6 @@ repository = "https://github.com/dmerejkowsky/ruplacer"
 extended-description = "Find and replace text in source files"
 
 [dependencies]
-difference = "2.0"
 ignore = "0.4"
 structopt = "0.2"
 colored = "1.6"
