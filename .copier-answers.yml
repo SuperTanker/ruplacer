@@ -1,0 +1,9 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v1.0.0-15-g26a7328
+_src_path: git+https://git.sr.ht/~dmerej/copier-python
+author_email: dimitri@dmerej.info
+author_name: Dimitri Merejkowsky
+package_import_name: ruplacer
+project_description: ruplacer implementation in Python
+project_name: ruplacer
+project_version: 0.0.1

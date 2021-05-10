@@ -1,0 +1,28 @@
+[tool.isort]
+profile = "black"
+
+[tool.poetry]
+name = "ruplacer"
+version = "0.0.1"
+description = "ruplacer implementation in Python"
+authors = ["Dimitri Merejkowsky <dimitri@dmerej.info>"]
+readme = "README.md"
+license = "BSD-3-Clause"
+repository = ""
+# documentation = ""
+
+[tool.poetry.urls]
+# Changelog = ""
+# Issues = ""
+
+[tool.poetry.dependencies]
+python = "^3.6.2"
+cli-ui = "^0.14.0"
+inflection = "^0.5.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.0.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
