@@ -45,11 +45,16 @@ impl DirectoryPatcher {
             None => return Ok(()),
             Some(f) => f,
         };
-        self.stats.update(file_patcher.num_replacements());
+        let num_replacements = file_patcher.num_replacements();
+        if num_replacements != 0 {
+            println!();
+        }
+        self.stats.update(num_replacements);
         if self.settings.dry_run {
             return Ok(());
         }
-        file_patcher.run()
+        file_patcher.run()?;
+        Ok(())
     }
 
     fn build_walker(&self) -> ignore::Walk {

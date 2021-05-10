@@ -19,11 +19,11 @@ pub fn from_regex(re: regex::Regex, replacement: &str) -> Query {
     Query::Regex(re, replacement.to_string())
 }
 
-fn to_ugly_case(input: &str) -> String {
-    to_train_case(input).replace("-", "_")
-}
-
 pub fn subvert(pattern: &str, replacement: &str) -> Query {
+    fn to_ugly_case(input: &str) -> String {
+        to_train_case(input).replace("-", "_")
+    }
+
     let mut patterns: Vec<String> = vec![];
     let mut replacements: Vec<String> = vec![];
     for func in &[
