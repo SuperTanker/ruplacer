@@ -179,14 +179,6 @@ impl Fragments {
         self.inputs.is_empty()
     }
 
-    pub fn inputs(&self) -> &[Fragment] {
-        &self.inputs
-    }
-
-    pub fn outputs(&self) -> &[Fragment] {
-        &self.outputs
-    }
-
     fn add(&mut self, input: (usize, &str), output: (usize, &str)) {
         // invariant: self.inputs and self.outputs should always have the same lenght
         self.inputs.push(Fragment {
