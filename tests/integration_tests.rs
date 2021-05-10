@@ -54,7 +54,6 @@ fn run_ruplacer(data_path: &Path, settings: Settings) -> DirectoryPatcher {
 fn test_replace_old_by_new() {
     let tmp_dir = TempDir::new("test-ruplacer").expect("failed to create temp dir");
     let data_path = setup_test(&tmp_dir);
-    dbg!(&data_path);
 
     let settings = Settings::default();
     run_ruplacer(&data_path, settings);

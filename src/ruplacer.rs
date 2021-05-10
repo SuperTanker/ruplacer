@@ -16,57 +16,41 @@ pub struct Replacement<'a> {
     output: String,
 }
 
-#[derive(Debug)]
-pub struct Patch {
-    red: String,
-    green: String,
-}
-
-impl Patch {
+impl<'a> Replacement<'a> {
+    pub fn output(&self) -> &str {
+        &self.output
+    }
     pub fn print_self(&self, path: &Path, lineno: usize) {
         let prefix = format!(
             "{}:{}",
             path.display().to_string().bold(),
             lineno.to_string()
         );
-        println!("{} {}", prefix, &self.red);
-        println!("{} {}", prefix, &self.green);
-    }
-}
-
-impl<'a> Replacement<'a> {
-    pub fn output(&self) -> &str {
-        &self.output
-    }
-
-    pub fn patch(&self) -> Patch {
-        let mut red = String::new();
+        print!("{} {}", prefix, "--- ".red());
         let mut current_index = 0;
         for input_fragment in &self.fragments.inputs {
             let Fragment {
                 index: input_index,
                 text: input_text,
             } = input_fragment;
-            red.push_str(&self.input[current_index..*input_index]);
-            red.push_str(&format!("{}", input_text.red().underline()));
+            print!("{}", &self.input[current_index..*input_index]);
+            print!("{}", input_text.red().underline());
             current_index = input_index + input_text.len();
         }
-        red.push_str(&self.input[current_index..]);
+        println!("{}", &self.input[current_index..]);
 
-        let mut green = String::new();
+        print!("{} {}", prefix, "+++ ".green());
         let mut current_index = 0;
         for output_fragment in &self.fragments.outputs {
             let Fragment {
                 index: output_index,
                 text: output_text,
             } = output_fragment;
-            green.push_str(&self.output[current_index..*output_index]);
-            green.push_str(&format!("{}", output_text.green().underline()));
+            print!("{}", &self.output[current_index..*output_index]);
+            print!("{}", output_text.green().underline());
             current_index = output_index + output_text.len();
         }
-        green.push_str(&self.output[current_index..]);
-
-        Patch { red, green }
+        println!("{}", &self.output[current_index..]);
     }
 }
 
@@ -75,7 +59,6 @@ pub fn replace<'a>(input: &'a str, query: &Query) -> Option<Replacement<'a>> {
     if fragments.is_empty() {
         return None;
     }
-    dbg!(&fragments);
     let output = get_output(input, &fragments);
     Some(Replacement {
         input,
@@ -84,8 +67,8 @@ pub fn replace<'a>(input: &'a str, query: &Query) -> Option<Replacement<'a>> {
     })
 }
 
-trait FindAndReplace {
-    // return position of the match, input_text, output_text
+trait Replacer {
+    // return position of the match, input_text, output_text, or None
     fn find_and_replace(&self, buff: &str) -> Option<(usize, String, String)>;
 }
 
@@ -103,7 +86,7 @@ impl<'a> SubstringReplacer<'a> {
     }
 }
 
-impl<'a> FindAndReplace for SubstringReplacer<'a> {
+impl<'a> Replacer for SubstringReplacer<'a> {
     fn find_and_replace(&self, buff: &str) -> Option<(usize, String, String)> {
         let pos = buff.find(&self.pattern)?;
         Some((pos, self.pattern.to_string(), self.replacement.to_string()))
@@ -137,7 +120,7 @@ impl SubvertReplacer {
     }
 }
 
-impl FindAndReplace for SubvertReplacer {
+impl Replacer for SubvertReplacer {
     fn find_and_replace(&self, buff: &str) -> Option<(usize, String, String)> {
         // We need to return the best possible match, other wise we may
         // replace FooBar with SpamEggs *before* replacing foo-bar with spam-eggs
@@ -175,7 +158,7 @@ impl<'a> RegexReplacer<'a> {
     }
 }
 
-impl<'a> FindAndReplace for RegexReplacer<'a> {
+impl<'a> Replacer for RegexReplacer<'a> {
     fn find_and_replace(&self, buff: &str) -> Option<(usize, String, String)> {
         let regex_match = self.regex.find(buff)?;
         let pos = regex_match.start();
@@ -276,21 +259,18 @@ fn get_output(input: &str, Fragments { inputs, outputs }: &Fragments) -> String 
     return output;
 }
 
-fn get_fragments_with_finder(input: &str, fragment_getter: impl FindAndReplace) -> Fragments {
+fn get_fragments_with_finder(input: &str, finder: impl Replacer) -> Fragments {
     let mut fragments = Fragments::new();
     let mut input_index = 0;
     let mut output_index = 0;
     let mut buff = input;
-    while let Some(res) = fragment_getter.find_and_replace(buff) {
+    while let Some(res) = finder.find_and_replace(buff) {
         let (pos, input_text, output_text) = res;
         input_index += pos;
         output_index += pos;
         fragments.add((input_index, &input_text), (output_index, &output_text));
         let new_start = input_index + input_text.len();
-        if new_start >= buff.len() - 1 {
-            break;
-        }
-        buff = &buff[new_start..];
+        buff = &input[new_start..];
         input_index += input_text.len();
         output_index += output_text.len();
     }
@@ -335,9 +315,8 @@ mod tests {
         let replacement = "new";
         let query = query::substring(pattern, replacement);
         let replacement = replace(input, &query).unwrap();
-        let patch = replacement.patch();
         let path = Path::new("toto");
-        patch.print_self(&path, 3);
+        replacement.print_self(&path, 3);
     }
 
     #[test]

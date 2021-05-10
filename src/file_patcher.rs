@@ -35,14 +35,12 @@ impl FilePatcher {
                     num_replacements += 1;
                     let lineno = num + 1;
                     let new_line = replacement.output();
-                    let patch = replacement.patch();
-                    patch.print_self(&path, lineno);
+                    replacement.print_self(&path, lineno);
                     new_contents.push_str(&new_line);
                 }
             }
             new_contents.push('\n');
         }
-        dbg!(&new_contents);
         Ok(Some(FilePatcher {
             path: path.to_path_buf(),
             new_contents,
