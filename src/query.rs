@@ -8,7 +8,8 @@ use inflector::cases::traincase::*;
 pub enum Query {
     Substring(String, String),
     Regex(regex::Regex, String),
-    Subvert(Vec<String>, Vec<String>),
+    // A list like [(foo_bar, spam_eggs), (FooBar, SpamEggs) ...)]
+    Subvert(Vec<(String, String)>),
 }
 
 pub fn substring(old: &str, new: &str) -> Query {
@@ -24,8 +25,7 @@ pub fn subvert(pattern: &str, replacement: &str) -> Query {
         to_train_case(input).replace("-", "_")
     }
 
-    let mut patterns: Vec<String> = vec![];
-    let mut replacements: Vec<String> = vec![];
+    let mut items = vec![];
     for func in &[
         to_camel_case,
         to_kebab_case,
@@ -35,8 +35,7 @@ pub fn subvert(pattern: &str, replacement: &str) -> Query {
         to_train_case,
         to_ugly_case,
     ] {
-        patterns.push(func(pattern));
-        replacements.push(func(replacement));
+        items.push((func(pattern), func(replacement)));
     }
-    Query::Subvert(patterns, replacements)
+    Query::Subvert(items)
 }

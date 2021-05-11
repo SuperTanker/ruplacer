@@ -1,8 +1,25 @@
 #![allow(dead_code)]
+
 use crate::query::Query;
 use colored::*;
 use regex::Regex;
 
+/// Main entry point: execute query on a line of input.
+/// If there was a match, return a Replacement struct
+pub fn replace<'a>(input: &'a str, query: &Query) -> Option<Replacement<'a>> {
+    let fragments = get_fragments(input, query);
+    if fragments.is_empty() {
+        return None;
+    }
+    let output = get_output(input, &fragments);
+    Some(Replacement {
+        fragments,
+        input,
+        output,
+    })
+}
+
+/// A replacement contains the of fragments, the input string and the output string
 #[derive(Debug)]
 pub struct Replacement<'a> {
     fragments: Fragments,
@@ -15,10 +32,11 @@ impl<'a> Replacement<'a> {
         &self.output
     }
 
+    /// Print the replacement as two lines, `--- <red>`, `+++ <green>`
     pub fn print_self(&self, prefix: &str) {
         print!("{} {}", prefix, "--- ".red());
         let mut current_index = 0;
-        for input_fragment in &self.fragments.inputs {
+        for (input_fragment, _) in self.fragments.into_iter() {
             let Fragment {
                 index: input_index,
                 text: input_text,
@@ -31,7 +49,7 @@ impl<'a> Replacement<'a> {
 
         print!("{} {}", prefix, "+++ ".green());
         let mut current_index = 0;
-        for output_fragment in &self.fragments.outputs {
+        for (_, output_fragment) in self.fragments.into_iter() {
             let Fragment {
                 index: output_index,
                 text: output_text,
@@ -44,17 +62,48 @@ impl<'a> Replacement<'a> {
     }
 }
 
-pub fn replace<'a>(input: &'a str, query: &Query) -> Option<Replacement<'a>> {
-    let fragments = get_fragments(input, query);
-    if fragments.is_empty() {
-        return None;
+#[derive(Debug)]
+// A list of input_fragment, output_fragent
+struct Fragments(Vec<(Fragment, Fragment)>);
+
+impl Fragments {
+    fn new() -> Self {
+        Self(vec![])
     }
-    let output = get_output(input, &fragments);
-    Some(Replacement {
-        fragments,
-        input,
-        output,
-    })
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    fn add(&mut self, input: (usize, &str), output: (usize, &str)) {
+        let input_fragment = Fragment {
+            index: input.0,
+            text: input.1.to_string(),
+        };
+        let output_fragent = Fragment {
+            index: output.0,
+            text: output.1.to_string(),
+        };
+        self.0.push((input_fragment, output_fragent));
+    }
+}
+
+impl<'a> IntoIterator for &'a Fragments {
+    type Item = &'a (Fragment, Fragment);
+
+    type IntoIter = std::slice::Iter<'a, (Fragment, Fragment)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+/// Represent a fragment of text, similar to the data structure returned
+/// by String::match_indices
+#[derive(Debug)]
+struct Fragment {
+    index: usize,
+    text: String,
 }
 
 trait Replacer {
@@ -84,16 +133,12 @@ impl<'a> Replacer for SubstringReplacer<'a> {
 }
 
 struct SubvertReplacer<'a> {
-    patterns: &'a [String],
-    replacements: &'a [String],
+    items: &'a [(String, String)],
 }
 
 impl<'a> SubvertReplacer<'a> {
-    fn new(patterns: &'a [String], replacements: &'a [String]) -> Self {
-        Self {
-            patterns,
-            replacements,
-        }
+    fn new(items: &'a [(String, String)]) -> Self {
+        Self { items }
     }
 }
 
@@ -103,7 +148,7 @@ impl<'a> Replacer for SubvertReplacer<'a> {
         // replace FooBar with SpamEggs *before* replacing foo-bar with spam-eggs
         let mut best_pos = buff.len();
         let mut best_index = None;
-        for (i, pattern) in self.patterns.iter().enumerate() {
+        for (i, (pattern, _)) in self.items.iter().enumerate() {
             let pos = buff.find(pattern);
             match pos {
                 Some(p) if p < best_pos => {
@@ -116,11 +161,9 @@ impl<'a> Replacer for SubvertReplacer<'a> {
         }
 
         let best_index = best_index?;
-        Some((
-            best_pos,
-            self.patterns[best_index].to_string(),
-            self.replacements[best_index].to_string(),
-        ))
+        let best_item = &self.items[best_index];
+        let (pattern, replacement) = best_item;
+        Some((best_pos, pattern.to_string(), replacement.to_string()))
     }
 }
 
@@ -145,49 +188,8 @@ impl<'a> Replacer for RegexReplacer<'a> {
     }
 }
 
-/// Represent a fragment of text, similar to the data structure returned
-/// by String::match_indices
-#[derive(Debug)]
-struct Fragment {
-    index: usize,
-    text: String,
-}
-
-/// inputs: framgents that are found
-/// outputs: replacements for the fragments that were found
-#[derive(Debug)]
-struct Fragments {
-    inputs: Vec<Fragment>,
-    outputs: Vec<Fragment>,
-}
-
-impl Fragments {
-    fn new() -> Self {
-        Self {
-            inputs: vec![],
-            outputs: vec![],
-        }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.inputs.is_empty()
-    }
-
-    fn add(&mut self, input: (usize, &str), output: (usize, &str)) {
-        // invariant: self.inputs and self.outputs should always have the same lenght
-        self.inputs.push(Fragment {
-            index: input.0,
-            text: input.1.to_string(),
-        });
-        self.outputs.push(Fragment {
-            index: output.0,
-            text: output.1.to_string(),
-        });
-    }
-}
-
 /// Return a list of fragments for input string and ouptut string
-/// Both lists of framgents will be used for:
+/// Both lists of fragments will be used for:
 ///    - computing the output string
 ///    - printing the patch
 fn get_fragments(input: &str, query: &Query) -> Fragments {
@@ -200,32 +202,11 @@ fn get_fragments(input: &str, query: &Query) -> Fragments {
             let finder = RegexReplacer::new(&regex, &replacement);
             get_fragments_with_finder(input, finder)
         }
-        Query::Subvert(patterns, replacements) => {
-            let finder = SubvertReplacer::new(&patterns, &replacements);
+        Query::Subvert(items) => {
+            let finder = SubvertReplacer::new(&items);
             get_fragments_with_finder(input, finder)
         }
     }
-}
-
-fn get_output(input: &str, Fragments { inputs, outputs }: &Fragments) -> String {
-    let mut current_index = 0;
-    let mut output = String::new();
-    for (input_fragment, output_fragment) in inputs.iter().zip(outputs.iter()) {
-        let Fragment {
-            text: input_text,
-            index: input_index,
-        } = input_fragment;
-
-        let Fragment {
-            text: output_text, ..
-        } = output_fragment;
-
-        output.push_str(&input[current_index..*input_index]);
-        output.push_str(&output_text);
-        current_index = input_index + input_text.len();
-    }
-    output.push_str(&input[current_index..]);
-    output
 }
 
 fn get_fragments_with_finder(input: &str, finder: impl Replacer) -> Fragments {
@@ -245,6 +226,27 @@ fn get_fragments_with_finder(input: &str, finder: impl Replacer) -> Fragments {
     }
 
     fragments
+}
+
+fn get_output(input: &str, fragments: &Fragments) -> String {
+    let mut current_index = 0;
+    let mut output = String::new();
+    for (input_fragment, output_fragment) in fragments.into_iter() {
+        let Fragment {
+            text: input_text,
+            index: input_index,
+        } = input_fragment;
+
+        let Fragment {
+            text: output_text, ..
+        } = output_fragment;
+
+        output.push_str(&input[current_index..*input_index]);
+        output.push_str(&output_text);
+        current_index = input_index + input_text.len();
+    }
+    output.push_str(&input[current_index..]);
+    output
 }
 
 #[cfg(test)]
