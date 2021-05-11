@@ -5,6 +5,11 @@ use regex::Regex;
 /// Main entry point: execute query on a line of input.
 /// If there was a match, return a Replacement struct
 pub fn replace<'a>(input: &'a str, query: &Query) -> Option<Replacement<'a>> {
+    // This occurs in two steps:
+    // 1/ Compute the input and ouptut fragments - this depends
+    //    on the query enum variant
+    // 2/ Use the list of fragments to build the output string
+    //   (this uses the same code for every query enum variant)
     let fragments = get_fragments(input, query);
     if fragments.is_empty() {
         return None;
@@ -106,7 +111,7 @@ struct Fragment {
 
 trait Replacer {
     // return position of the match, input_text, output_text, or None
-    fn find_and_replace(&self, buff: &str) -> Option<(usize, String, String)>;
+    fn replace(&self, buff: &str) -> Option<(usize, String, String)>;
 }
 
 struct SubstringReplacer<'a> {
@@ -124,7 +129,7 @@ impl<'a> SubstringReplacer<'a> {
 }
 
 impl<'a> Replacer for SubstringReplacer<'a> {
-    fn find_and_replace(&self, buff: &str) -> Option<(usize, String, String)> {
+    fn replace(&self, buff: &str) -> Option<(usize, String, String)> {
         let pos = buff.find(&self.pattern)?;
         Some((pos, self.pattern.to_string(), self.replacement.to_string()))
     }
@@ -141,7 +146,7 @@ impl<'a> SubvertReplacer<'a> {
 }
 
 impl<'a> Replacer for SubvertReplacer<'a> {
-    fn find_and_replace(&self, buff: &str) -> Option<(usize, String, String)> {
+    fn replace(&self, buff: &str) -> Option<(usize, String, String)> {
         // We need to return the best possible match, other wise we may
         // replace FooBar with SpamEggs *before* replacing foo-bar with spam-eggs
         let mut best_pos = buff.len();
@@ -177,7 +182,7 @@ impl<'a> RegexReplacer<'a> {
 }
 
 impl<'a> Replacer for RegexReplacer<'a> {
-    fn find_and_replace(&self, buff: &str) -> Option<(usize, String, String)> {
+    fn replace(&self, buff: &str) -> Option<(usize, String, String)> {
         let regex_match = self.regex.find(buff)?;
         let pos = regex_match.start();
         let input_text = regex_match.as_str();
@@ -208,11 +213,21 @@ fn get_fragments(input: &str, query: &Query) -> Fragments {
 }
 
 fn get_fragments_with_finder(input: &str, finder: impl Replacer) -> Fragments {
+    // Algorithm: call finder.find(). If it matches, bump input_index and output_text
+    // using the length of the input text and the length of the output text respectively
+    // Truncate the input string at each step to keep finding successive matches:
+    //
+    // step | buf                      | input_fragment | output_fragent
+    // -----|--------------------------|----------------|----------
+    //    0 | "my tea is the best tea" |     (3, "tea") | (3, "coffe")
+    //    1 | "  is the best tea"      |    (19, "tea") | (20, "coffe")
+    //    2 | " !"                     |      n/a       | n/a
+    //
     let mut fragments = Fragments::new();
     let mut input_index = 0;
     let mut output_index = 0;
     let mut buff = input;
-    while let Some(res) = finder.find_and_replace(buff) {
+    while let Some(res) = finder.replace(buff) {
         let (pos, input_text, output_text) = res;
         input_index += pos;
         output_index += pos;
