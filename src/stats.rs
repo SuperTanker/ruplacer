@@ -1,6 +1,6 @@
 use inflector::string::pluralize::to_plural;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Stats {
     pub matching_files: usize,
     pub num_replacements: usize,

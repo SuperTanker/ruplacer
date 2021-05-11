@@ -6,6 +6,7 @@ use crate::query::Query;
 use crate::settings::Settings;
 use crate::stats::Stats;
 
+#[derive(Debug)]
 pub struct DirectoryPatcher {
     path: PathBuf,
     settings: Settings,
@@ -23,7 +24,7 @@ impl DirectoryPatcher {
     }
 
     pub fn run(&mut self, query: &Query) -> Result<()> {
-        let walker = self.build_walker();
+        let walker = self.build_walker()?;
         for entry in walker {
             let entry = entry.with_context(|| "Could not read directory entry")?;
             if let Some(file_type) = entry.file_type() {
@@ -57,7 +58,7 @@ impl DirectoryPatcher {
         Ok(())
     }
 
-    fn build_walker(&self) -> ignore::Walk {
+    fn build_walker(&self) -> Result<ignore::Walk> {
         let mut types_builder = ignore::types::TypesBuilder::new();
         types_builder.add_defaults();
         let mut cnt: u32 = 0;
@@ -85,9 +86,7 @@ impl DirectoryPatcher {
                 types_builder.negate(t);
             }
         }
-        let types_matcher = types_builder
-            .build()
-            .expect("Error when building file types");
+        let types_matcher = types_builder.build()?;
         let mut walk_builder = ignore::WalkBuilder::new(&self.path);
         walk_builder.types(types_matcher);
         // Note: the walk_builder configures the "ignore" settings of the Walker,
@@ -98,6 +97,6 @@ impl DirectoryPatcher {
         if self.settings.hidden {
             walk_builder.hidden(false);
         }
-        walk_builder.build()
+        Ok(walk_builder.build())
     }
 }

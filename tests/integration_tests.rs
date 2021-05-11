@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+use anyhow::Result;
 use tempdir::TempDir;
 
 use ruplacer::query;
@@ -42,12 +44,10 @@ fn assert_not_replaced(path: &Path) {
     assert!(contents.contains("old"));
 }
 
-fn run_ruplacer(data_path: &Path, settings: Settings) -> DirectoryPatcher {
+fn run_ruplacer(data_path: &Path, settings: Settings) -> Result<DirectoryPatcher> {
     let mut directory_patcher = DirectoryPatcher::new(data_path.to_path_buf(), settings);
-    directory_patcher
-        .run(&query::substring("old", "new"))
-        .expect("ruplacer failed");
-    directory_patcher
+    directory_patcher.run(&query::substring("old", "new"))?;
+    Ok(directory_patcher)
 }
 
 #[test]
@@ -56,7 +56,7 @@ fn test_replace_old_by_new() {
     let data_path = setup_test(&tmp_dir);
 
     let settings = Settings::default();
-    run_ruplacer(&data_path, settings);
+    run_ruplacer(&data_path, settings).unwrap();
     let top_txt_path = data_path.join("top.txt");
     assert_replaced(&top_txt_path);
 
@@ -71,7 +71,7 @@ fn test_stats() {
     let data_path = setup_test(&tmp_dir);
 
     let settings = Settings::default();
-    let patcher = run_ruplacer(&data_path, settings);
+    let patcher = run_ruplacer(&data_path, settings).unwrap();
     let stats = patcher.stats();
     assert!(stats.matching_files > 1);
     assert!(stats.num_replacements > 1);
@@ -86,7 +86,7 @@ fn test_dry_run() {
         dry_run: true,
         ..Default::default()
     };
-    run_ruplacer(&data_path, settings);
+    run_ruplacer(&data_path, settings).unwrap();
 
     let top_txt_path = data_path.join("top.txt");
     assert_not_replaced(&top_txt_path);
@@ -98,7 +98,7 @@ fn test_skip_hidden_and_ignored_by_default() {
     let data_path = setup_test(&tmp_dir);
 
     let settings = Settings::default();
-    run_ruplacer(&data_path, settings);
+    run_ruplacer(&data_path, settings).unwrap();
 
     let hidden_path = data_path.join(".hidden.txt");
     assert_not_replaced(&hidden_path);
@@ -116,7 +116,7 @@ fn test_can_replace_hidden_files() {
         hidden: true,
         ..Default::default()
     };
-    run_ruplacer(&data_path, settings);
+    run_ruplacer(&data_path, settings).unwrap();
 
     let hidden_path = data_path.join(".hidden.txt");
     assert_replaced(&hidden_path);
@@ -131,7 +131,7 @@ fn test_can_replace_ignored_files() {
         ignored: true,
         ..Default::default()
     };
-    run_ruplacer(&data_path, settings);
+    run_ruplacer(&data_path, settings).unwrap();
 
     let ignored_path = data_path.join("ignore.txt");
     assert_replaced(&ignored_path);
@@ -145,7 +145,7 @@ fn test_skip_non_utf8_files() {
     fs::write(bin_path, b"caf\xef\n").unwrap();
 
     let settings = Settings::default();
-    run_ruplacer(&data_path, settings);
+    run_ruplacer(&data_path, settings).unwrap();
 }
 
 fn add_python_file(data_path: &Path) -> PathBuf {
@@ -164,7 +164,7 @@ fn test_select_file_types() {
         selected_file_types: vec!["py".to_string()],
         ..Default::default()
     };
-    let patcher = run_ruplacer(&data_path, settings);
+    let patcher = run_ruplacer(&data_path, settings).unwrap();
 
     let stats = patcher.stats();
     assert_eq!(stats.matching_files, 1);
@@ -180,7 +180,7 @@ fn test_select_file_types_by_glob_pattern_1() {
         selected_file_types: vec!["*.py".to_string()],
         ..Default::default()
     };
-    let patcher = run_ruplacer(&data_path, settings);
+    let patcher = run_ruplacer(&data_path, settings).unwrap();
 
     let stats = patcher.stats();
     assert_eq!(stats.matching_files, 1);
@@ -196,23 +196,23 @@ fn test_select_file_types_by_glob_pattern_2() {
         selected_file_types: vec!["f*.py".to_string()],
         ..Default::default()
     };
-    let patcher = run_ruplacer(&data_path, settings);
+    let patcher = run_ruplacer(&data_path, settings).unwrap();
 
     let stats = patcher.stats();
     assert_eq!(stats.matching_files, 1);
 }
 
 #[test]
-#[should_panic]
-fn test_select_file_types_by_wrong_glob_pattern() {
+fn test_select_file_types_by_incorrect_glob_pattern() {
     let tmp_dir = TempDir::new("test-ruplacer").expect("failed to create temp dir");
     let data_path = setup_test(&tmp_dir);
 
     let settings = Settings {
-        selected_file_types: vec!["f**.py".to_string()],
+        selected_file_types: vec!["[*.py".to_string()],
         ..Default::default()
     };
-    run_ruplacer(&data_path, settings);
+    let err = run_ruplacer(&data_path, settings).unwrap_err();
+    assert!(err.to_string().contains("error parsing glob"));
 }
 
 #[test]
@@ -224,7 +224,7 @@ fn test_ignore_file_types() {
         ignored_file_types: vec!["py".to_string()],
         ..Default::default()
     };
-    run_ruplacer(&data_path, settings);
+    run_ruplacer(&data_path, settings).unwrap();
 
     assert_not_replaced(&py_path);
 }
@@ -238,7 +238,7 @@ fn test_ignore_file_types_by_glob_pattern_1() {
         ignored_file_types: vec!["*.py".to_string()],
         ..Default::default()
     };
-    run_ruplacer(&data_path, settings);
+    run_ruplacer(&data_path, settings).unwrap();
 
     assert_not_replaced(&py_path);
 }
@@ -252,19 +252,19 @@ fn test_ignore_file_types_by_glob_pattern_2() {
         ignored_file_types: vec!["f*.py".to_string()],
         ..Default::default()
     };
-    run_ruplacer(&data_path, settings);
+    run_ruplacer(&data_path, settings).unwrap();
 
     assert_not_replaced(&py_path);
 }
 
 #[test]
-#[should_panic]
-fn test_ignore_file_types_by_wrong_glob_pattern() {
+fn test_ignore_file_types_by_incorrect_glob_pattern() {
     let tmp_dir = TempDir::new("test-ruplacer").expect("failed to create temp dir");
     let data_path = setup_test(&tmp_dir);
     let settings = Settings {
-        ignored_file_types: vec!["**.py".to_string()],
+        ignored_file_types: vec!["[.py".to_string()],
         ..Default::default()
     };
-    run_ruplacer(&data_path, settings);
+    let err = run_ruplacer(&data_path, settings).unwrap_err();
+    assert!(err.to_string().contains("unrecognized file type"));
 }
