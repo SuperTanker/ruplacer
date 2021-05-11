@@ -34,8 +34,9 @@ impl FilePatcher {
                 Some(replacement) => {
                     num_replacements += 1;
                     let lineno = num + 1;
+                    let prefix = format!("{}:{} ", path.to_string_lossy(), lineno);
                     let new_line = replacement.output();
-                    replacement.print_self(&path, lineno);
+                    replacement.print_self(&prefix);
                     new_contents.push_str(&new_line);
                 }
             }

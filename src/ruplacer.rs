@@ -2,7 +2,6 @@
 use crate::query::Query;
 use colored::*;
 use regex::Regex;
-use std::path::Path;
 
 #[derive(Debug)]
 pub struct Replacement<'a> {
@@ -16,12 +15,7 @@ impl<'a> Replacement<'a> {
         &self.output
     }
 
-    pub fn print_self(&self, path: &Path, lineno: usize) {
-        let prefix = format!(
-            "{}:{}",
-            path.display().to_string().bold(),
-            lineno.to_string()
-        );
+    pub fn print_self(&self, prefix: &str) {
         print!("{} {}", prefix, "--- ".red());
         let mut current_index = 0;
         for input_fragment in &self.fragments.inputs {
@@ -284,14 +278,13 @@ mod tests {
     }
 
     #[test]
-    fn test_patch() {
+    fn test_display_patch() {
         let input = "Top: old is nice";
         let pattern = "old";
         let replacement = "new";
         let query = query::substring(pattern, replacement);
         let replacement = replace(input, &query).unwrap();
-        let path = Path::new("toto");
-        replacement.print_self(&path, 3);
+        replacement.print_self("foo.txt:3 ");
     }
 
     #[test]
