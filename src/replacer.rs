@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::query::Query;
 use colored::*;
 use regex::Regex;
